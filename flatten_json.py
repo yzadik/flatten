@@ -17,7 +17,7 @@ def _construct_key(previous_key, separator, new_key):
         return new_key
 
 
-def flatten(nested_dict, separator="_", root_keys_to_ignore=set()):
+def flatten(nested_dict, dict_separator="_", list_key_prefix="@", root_keys_to_ignore=set()):
     """
     Flattens a dictionary with nested structure to a dictionary with no hierarchy
     Consider ignoring keys that you are not interested in to prevent unnecessary processing
@@ -29,7 +29,8 @@ def flatten(nested_dict, separator="_", root_keys_to_ignore=set()):
     :return: flattened dictionary
     """
     assert isinstance(nested_dict, dict), "flatten requires a dictionary input"
-    assert isinstance(separator, str), "separator must be a string"
+    assert isinstance(list_key_prefix, str), "list_separator must be a string"
+    assert isinstance(dict_separator, str), "dict_separator must be a string"
 
     # This global dictionary stores the flattened keys and values and is ultimately returned
     flattened_dict = dict()
@@ -42,13 +43,14 @@ def flatten(nested_dict, separator="_", root_keys_to_ignore=set()):
         :param key: carries the concatenated key for the object_
         :return: None
         """
+        list_separator = dict_separator + list_key_prefix
         if isinstance(object_, dict):
             for object_key in object_:
                 if not (not key and object_key in root_keys_to_ignore):
-                    _flatten(object_[object_key], _construct_key(key, separator, object_key))
+                    _flatten(object_[object_key], _construct_key(key, dict_separator, object_key))
         elif isinstance(object_, list) or isinstance(object_, set):
             for index, item in enumerate(object_):
-                _flatten(item, _construct_key(key, separator, index))
+                _flatten(item, _construct_key(key, list_separator, index))
         else:
             flattened_dict[key] = object_
 
@@ -90,7 +92,7 @@ def unflatten(flat_dict, separator='_'):
     return unflattened_dict
 
 
-def unflatten_list(flat_dict, separator='_'):
+def unflatten_list(flat_dict, separator='_', list_key_prefix='@'):
     """
     Unflattens a dictionary, first assuming no lists exist and then tries to identify lists and replaces them
     This is probably not very efficient and has not been tested extensively
@@ -111,20 +113,20 @@ def unflatten_list(flat_dict, separator='_'):
     def _convert_dict_to_list(object_, parent_object, parent_object_key):
         if isinstance(object_, dict):
             try:
-                keys = [int(key) for key in object_]
+                keys = [int((key.split(list_key_prefix))[1]) for key in object_]
                 keys.sort()
-            except (ValueError, TypeError):
+            except (ValueError, IndexError, TypeError):
                 keys = []
             keys_len = len(keys)
 
             if (keys_len > 0 and sum(keys) == int(((keys_len - 1) * keys_len) / 2) and keys[0] == 0 and
                     keys[-1] == keys_len - 1 and check_if_numbers_are_consecutive(keys)):
                 # The dictionary looks like a list so we're going to replace it as one
-                parent_object[parent_object_key] = [object_[str(key)] for key in keys]
-
-            for key in object_:
-                if isinstance(object_[key], dict):
-                    _convert_dict_to_list(object_[key], object_, key)
+                parent_object[parent_object_key] = [object_[list_key_prefix + str(key)] for key in keys]
+            else:
+                for key in object_:
+                    if isinstance(object_[key], dict):
+                        _convert_dict_to_list(object_[key], object_, key)
 
     _convert_dict_to_list(unflattened_dict, None, None)
     return unflattened_dict
