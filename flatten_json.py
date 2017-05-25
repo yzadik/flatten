@@ -49,8 +49,12 @@ def flatten(nested_dict, dict_separator="_", list_key_prefix="@", root_keys_to_i
                 if not (not key and object_key in root_keys_to_ignore):
                     _flatten(object_[object_key], _construct_key(key, dict_separator, object_key))
         elif isinstance(object_, list) or isinstance(object_, set):
+            empty = True
             for index, item in enumerate(object_):
                 _flatten(item, _construct_key(key, list_separator, index))
+                empty = False
+            if empty: 
+                flattened_dict[key] = []  
         else:
             flattened_dict[key] = object_
 
@@ -63,7 +67,7 @@ flatten_json = flatten
 def _unflatten_asserts(flat_dict, separator):
     assert isinstance(flat_dict, dict), "un_flatten requires a dictionary input"
     assert isinstance(separator, str), "separator must be a string"
-    assert all((not isinstance(value, Iterable) or isinstance(value, str)
+    assert all((not isinstance(value, Iterable) or isinstance(value, str) or (isinstance(value, list) and len(list(value)) == 0)
                 for value in flat_dict.values())), "provided dictionary is not flat"
 
 
@@ -118,6 +122,7 @@ def unflatten_list(flat_dict, separator='_', list_key_prefix='@'):
             except (ValueError, IndexError, TypeError):
                 keys = []
             keys_len = len(keys)
+
 
             if (keys_len > 0 and sum(keys) == int(((keys_len - 1) * keys_len) / 2) and keys[0] == 0 and
                     keys[-1] == keys_len - 1 and check_if_numbers_are_consecutive(keys)):
